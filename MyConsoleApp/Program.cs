@@ -24,9 +24,9 @@ namespace MyConsoleApp
         {
             Console.WriteLine("Hello World!");
 
-            Earth.Sphere().Printable().Write();
+            Earth.Sphere(10000).Printable().Write();
 
-            
+
 
             // with one:
             // 3.8460116, 7.2826767, 11.321257>
@@ -95,16 +95,28 @@ namespace MyConsoleApp
             return Vector3.Transform(v, RandomQuaternion());
         }
 
-        public static List<Vector3> Sphere(this Vector3 vector, int count = 500)//20000) // 800
+        public static List<Vector3> Sphere(this Vector3 vector, int count = 10000)
         {
             var list = new List<Vector3>();
-            for (var i = 0; i < count; i++)
+            for(var i = 0; i < count; i ++)
             {
-                list.Add(RandomRotate(vector));
+                list.Add(RandomSpherePoint(vector, 1));
             }
-
             return list;
         }
+
+        static Vector3 RandomSpherePoint(Vector3 vector, int radius)
+        {
+            var u = new Random().NextDouble();
+            var v = new Random().NextDouble();
+            var theta = 2 * Math.PI * u;
+            var phi = Math.Acos(2 * v - 1);
+            var x = vector.X + (radius * Math.Sin(phi) * Math.Cos(theta));
+            var y = vector.Y + (radius * Math.Sin(phi) * Math.Sin(theta));
+            var z = vector.Z + (radius * Math.Cos(phi));
+            return new Vector3((float)x, (float)y, (float)z);
+        }
+
 
         static Quaternion RandomQuaternion()
         {
@@ -134,6 +146,8 @@ namespace MyConsoleApp
                 csv.WriteRecords(data);
             }
         }
+
+
     }
 
     public class PrintableVector3

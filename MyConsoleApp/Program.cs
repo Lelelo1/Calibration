@@ -20,12 +20,16 @@ namespace MyConsoleApp
         // full cirlce: 6.31f rad
         static float Rads { get; } = 1; // 6.31f; fullcircle
         public static Vector3 Earth { get; } = new Vector3(NormEast, NormNorth, NormVertical);
+
+        public static Vector3 TestBias { get; } = new Vector3(0, 0, 50);
+
         static void Main(string[] args)
         {
             Console.WriteLine("Hello World!");
 
-            Earth.Sphere(10000).Printable().Write();
+             Vector3.Zero.Sphere(1, 1200).Select(unit => unit * Earth).ToList().Printable().Write();
 
+            // Select(e => )(e + TestBias) - Earth
 
 
             // with one:
@@ -95,12 +99,12 @@ namespace MyConsoleApp
             return Vector3.Transform(v, RandomQuaternion());
         }
 
-        public static List<Vector3> Sphere(this Vector3 vector, int count = 10000)
+        public static List<Vector3> Sphere(this Vector3 vector, int radius, int count = 10000)
         {
             var list = new List<Vector3>();
             for(var i = 0; i < count; i ++)
             {
-                list.Add(RandomSpherePoint(vector, 1));
+                list.Add(RandomSpherePoint(vector, radius));
             }
             return list;
         }

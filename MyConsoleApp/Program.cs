@@ -27,11 +27,10 @@ namespace MyConsoleApp
         {
             Console.WriteLine("Hello World!");
 
-             Vector3.Zero.Sphere(1, 1200).Select(unit => unit * Earth).ToList().Printable().Write();
-
+            Vector3.Zero.Sphere(1, 1200).Select(e => e * Earth.Length()).ToList().Printable().Write();
             // Select(e => )(e + TestBias) - Earth
 
-
+            Console.WriteLine(new Vector3(-36.12f, -12.56f, -32.89f).Length());
             // with one:
             // 3.8460116, 7.2826767, 11.321257>
             // <0.027889848, -0.05362284, 0.025732994>
@@ -121,7 +120,24 @@ namespace MyConsoleApp
             return new Vector3((float)x, (float)y, (float)z);
         }
 
+        /*
+        static List<Vector> DistributedVector4(this Vector3 vector, int count)
+        {
+            var xValues = count / 3;
+            var yValues = count / 3;
+            var zValues = count / 3;
 
+            var increaseX = ToRad(360 / xValues);
+            var increaseY = ToRad(360 / yValues);
+            var increaseZ = ToRad(360 / zValues);
+
+            var xQ = Quaternion.CreateFromAxisAngle(Vector3.UnitX, increaseX);
+            var yQ = Quaternion.CreateFromAxisAngle(Vector3.UnitY, increaseY);
+            var zQ = Quaternion.CreateFromAxisAngle(Vector3.UnitZ, increaseZ);
+
+            for(int i = new )
+        }
+        */
         static Quaternion RandomQuaternion()
         {
 
@@ -151,7 +167,11 @@ namespace MyConsoleApp
             }
         }
 
-
+        public static Vector3 Normalize(this Vector3 v, float norm = 1)
+        {
+            // note there is an axis angle as well
+            return v * norm / v.Length();
+        }
     }
 
     public class PrintableVector3

@@ -28,8 +28,9 @@ namespace MyConsoleApp
             Console.WriteLine("Hello World!");
 
             CreateEarthDataPoints();
-            CreateHardIronBiasedDataPoints();
-            
+            // CreateHardIronBiasedDataPoints();
+            CreateSoftIronBiasedDataPoints();
+
             // Select(e => )(e + TestBias) - Earth
 
             Console.WriteLine(new Vector3(-36.12f, -12.56f, -32.89f).Length());
@@ -47,8 +48,18 @@ namespace MyConsoleApp
         public static Vector3 TestBias { get; } = new Vector3(20, -10, -375);
         static void CreateHardIronBiasedDataPoints()
         {
-            Vector3.Zero.Sphere(1, 1200).Select(e => (e * Earth.Length()) + new Vector3(20, -10, -375)).ToList().Printable().Write("./data.csv");
+            Vector3.Zero.Sphere(1, 1200).Select(e => (e * Earth.Length()) + TestBias).ToList().Printable().Write("./data.csv");
         }
+
+        public static Vector3 SemiAxises { get; } = new Vector3(-0.5f, -0.8f, 1.2f);
+
+        
+        static void CreateSoftIronBiasedDataPoints()
+        {
+            Vector3.Zero.Sphere(1, 1200).Select(e => (e * Earth.Length())/ SemiAxises).ToList().Printable().Write("./data.csv");
+
+        }
+      
 
         // test adding and removed vectors prior to and after rotation 
 

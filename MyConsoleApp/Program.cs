@@ -21,13 +21,15 @@ namespace MyConsoleApp
         static float Rads { get; } = 1; // 6.31f; fullcircle
         public static Vector3 Earth { get; } = new Vector3(NormEast, NormNorth, NormVertical);
 
-        public static Vector3 TestBias { get; } = new Vector3(0, 0, 50);
+        
 
         static void Main(string[] args)
         {
             Console.WriteLine("Hello World!");
 
-            Vector3.Zero.Sphere(1, 1200).Select(e => e * Earth.Length()).ToList().Printable().Write();
+            CreateEarthDataPoints();
+            CreateHardIronBiasedDataPoints();
+            
             // Select(e => )(e + TestBias) - Earth
 
             Console.WriteLine(new Vector3(-36.12f, -12.56f, -32.89f).Length());
@@ -35,6 +37,19 @@ namespace MyConsoleApp
             // 3.8460116, 7.2826767, 11.321257>
             // <0.027889848, -0.05362284, 0.025732994>
         }
+
+        static void CreateEarthDataPoints()
+        {
+            Vector3.Zero.Sphere(1, 1200).Select(e => e * Earth.Length()).ToList().Printable().Write("./earth.csv");
+        }
+        
+
+        public static Vector3 TestBias { get; } = new Vector3(20, -10, -375);
+        static void CreateHardIronBiasedDataPoints()
+        {
+            Vector3.Zero.Sphere(1, 1200).Select(e => (e * Earth.Length()) + new Vector3(20, -10, -375)).ToList().Printable().Write("./data.csv");
+        }
+
         // test adding and removed vectors prior to and after rotation 
 
         // https://www.nxp.com/docs/en/application-note/AN4246.pdf
@@ -156,11 +171,11 @@ namespace MyConsoleApp
         } 
 
         // can't write 'Vector3' directly with 'CSVHelper' nuget
-        public static void Write(this List<PrintableVector3> data)
+        public static void Write(this List<PrintableVector3> data, string path)
         {
             CsvConfiguration configuration = new CsvConfiguration(CultureInfo.InvariantCulture);
             configuration.HasHeaderRecord = false;
-            using (var writer = new StreamWriter("./data.csv"))
+            using (var writer = new StreamWriter(path))
             using (var csv = new CsvWriter(writer, configuration))
             {
                 csv.WriteRecords(data);

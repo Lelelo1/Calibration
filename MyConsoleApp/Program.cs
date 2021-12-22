@@ -6,6 +6,7 @@ using System.Linq;
 using System.Numerics;
 using CsvHelper;
 using CsvHelper.Configuration;
+
 namespace MyConsoleApp
 {
     class Program
@@ -21,45 +22,111 @@ namespace MyConsoleApp
         static float Rads { get; } = 1; // 6.31f; fullcircle
         public static Vector3 Earth { get; } = new Vector3(NormEast, NormNorth, NormVertical);
 
-        
+
 
         static void Main(string[] args)
         {
             Console.WriteLine("Hello World!");
 
-            CreateEarthDataPoints();
-            // CreateHardIronBiasedDataPoints();
-            CreateSoftIronBiasedDataPoints();
+            var earthPoints = CreateEarthDataPoints();
+            earthPoints.Printable().Write("./earth.csv");
 
-            // Select(e => )(e + TestBias) - Earth
+            var earthSum = earthPoints.Sum();
+            Console.WriteLine(earthSum);
+            var earthMean = earthSum / 1200;
+
+
+
+
+            var hardIron = CreateHardIronBiasedDataPoints();
+            // hpoint = e * Earth.Length()) + TestBias
+            CreateHardIronBiasedDataPoints().Select(h =>
+            {
+                // using clamb approximate bias
+                /*
+                var center = Vector3.Normalize(Earth);
+                var bias = Vector3.Clamp(Vector3.Normalize(h), -center, center);
+                //bias *= Vector3.Dot(h, new Vector3(001f, 001f, 001f));
+                bias *= Earth.Length() - h.Length();
+                Console.WriteLine("bias: " + bias);
+
+                return h - bias; // correct but need to calculate bias more correctly
+                */
+
+                // trying quaternion
+                /*
+                var b = earthPoints.Select(e => Extensions.QuaternionBetween(h, Earth)).ToList().First();
+                //var bias = Vector3.Clamp(h, -b, b);
+                var a = Earth.Rotate(b).Normalize(h.Length());
+                Console.WriteLine(a);
+                */
+
+                /*
+                var a = Earth * h;
+                var b = Earth * -h;
+                Console.WriteLine("----");
+                Console.WriteLine(a + " and " + b);
+                Console.WriteLine(b - a);
+
+
+                var uh = (h / earthSum);
+                Console.WriteLine(uh);
+                Console.WriteLine(Quaternion.Normalize(Extensions.QuaternionBetween(h, uh)));
+                */
+
+
+                /*
+                var x = h.GeometRiSphere().Center.ToSystemVector();
+                //Console.WriteLine(x);
+                
+                var shrink = h / Earth.Length();
+                */
+
+                
+                var meanCount = 100;
+                var hMean = h.Sphere((int)h.Length(), meanCount).Sum() / meanCount;
+
+                var bias = hMean - earthMean;
+                Console.WriteLine("bias: " + bias);
+
+                //var invH = h.Rotate(Quaternion.CreateFromAxisAngle(Vector3.One, Extensions.ToRad(180))).Normalize(h.Length());
+
+                //Console.WriteLine(invH - h );
+
+                return h - bias;
+
+            }).ToList().Printable().Write("./data.csv");
+
+            //CreateSoftIronBiasedDataPoints();
 
             Console.WriteLine(new Vector3(-36.12f, -12.56f, -32.89f).Length());
             // with one:
             // 3.8460116, 7.2826767, 11.321257>
             // <0.027889848, -0.05362284, 0.025732994>
+            var o = 2 * 6 - 4;
+            Console.WriteLine("" + o);
         }
 
-        static void CreateEarthDataPoints()
+        static List<Vector3> CreateEarthDataPoints()
         {
-            Vector3.Zero.Sphere(1, 1200).Select(e => e * Earth.Length()).ToList().Printable().Write("./earth.csv");
+            return Vector3.Zero.Sphere(1, 1200).Select(e => e * Earth.Length()).ToList();
         }
-        
 
         public static Vector3 TestBias { get; } = new Vector3(20, -10, -375);
-        static void CreateHardIronBiasedDataPoints()
+        static List<Vector3> CreateHardIronBiasedDataPoints()
         {
-            Vector3.Zero.Sphere(1, 1200).Select(e => (e * Earth.Length()) + TestBias).ToList().Printable().Write("./data.csv");
+            return Vector3.Zero.Sphere(1, 1200).Select(e => (e * Earth.Length()) + TestBias).ToList();
         }
 
         public static Vector3 SemiAxises { get; } = new Vector3(-0.5f, -0.8f, 1.2f);
 
-        
-        static void CreateSoftIronBiasedDataPoints()
+
+        static List<Vector3> CreateSoftIronBiasedDataPoints()
         {
-            Vector3.Zero.Sphere(1, 1200).Select(e => (e * Earth.Length())/ SemiAxises).ToList().Printable().Write("./data.csv");
+            return Vector3.Zero.Sphere(1, 1200).Select(e => (e * Earth.Length()) / SemiAxises).ToList();
 
         }
-      
+
 
         // test adding and removed vectors prior to and after rotation 
 
@@ -73,9 +140,11 @@ namespace MyConsoleApp
                 0, 0, 0, 1);
             return matrix;
         }
+
+        
     }
 
-    
+
 
     static class Extensions
     {
@@ -127,7 +196,7 @@ namespace MyConsoleApp
         public static List<Vector3> Sphere(this Vector3 vector, int radius, int count = 10000)
         {
             var list = new List<Vector3>();
-            for(var i = 0; i < count; i ++)
+            for (var i = 0; i < count; i++)
             {
                 list.Add(RandomSpherePoint(vector, radius));
             }
@@ -179,7 +248,7 @@ namespace MyConsoleApp
         public static List<PrintableVector3> Printable(this List<Vector3> data)
         {
             return data.Select(d => new PrintableVector3(d.X, d.Y, d.Z)).ToList();
-        } 
+        }
 
         // can't write 'Vector3' directly with 'CSVHelper' nuget
         public static void Write(this List<PrintableVector3> data, string path)
@@ -198,7 +267,101 @@ namespace MyConsoleApp
             // note there is an axis angle as well
             return v * norm / v.Length();
         }
-    }
+
+        public static Vector3 Sum(this List<Vector3> vectors)
+        {
+            Vector3 sum = Vector3.Zero;
+            vectors.ForEach(v => sum += v);
+            return sum;
+        }
+
+        public static Quaternion Sum(this List<Quaternion> vectors)
+        {
+            Quaternion sum = Quaternion.Identity;
+            vectors.ForEach(v => sum += v);
+            return sum;
+        }
+
+        public static Quaternion Subtract(this List<Quaternion> vectors)
+        {
+            Quaternion t = Quaternion.Identity;
+            vectors.ForEach(v => t -= v);
+            return t;
+        }
+        public static Vector3 AxisX(this Vector3 vector)
+        {
+            return new Vector3(vector.X);
+        }
+        public static Vector3 AxisY(this Vector3 vector)
+        {
+            return new Vector3(vector.Y);
+        }
+        public static Vector3 AxisZ(this Vector3 vector)
+        {
+            return new Vector3(vector.Z);
+        }
+
+        public static Vector3 ClambedAxises(this Vector3 v1, Vector3 to)
+        {
+            var cX = Vector3.Clamp(v1.AxisX(), -to.AxisX(), to.AxisX());
+            var cY = Vector3.Clamp(v1.AxisY(), -to.AxisY(), to.AxisY());
+            var cZ = Vector3.Clamp(v1.AxisZ(), -to.AxisZ(), to.AxisZ());
+
+            return new Vector3(cX.X, cY.Y, cZ.Z);
+        }
+
+        //public static List<Vector> Substract()
+
+        // https://stackoverflow.com/questions/52584715/how-can-i-convert-a-quaternion-to-an-angle?rq=1
+        public static Vector3 Axis(this Quaternion q)
+        {
+
+            var a = AngleRads(q);
+
+            var ax = q.X / Math.Sin(Math.Acos(a));
+            var ay = q.Y / Math.Sin(Math.Acos(a));
+            var az = q.Z / Math.Sin(Math.Acos(a));
+
+            return new Vector3((float)ax, (float)ay, (float)az);
+        }
+
+        public static float AngleRads(Quaternion q)
+        {
+            return (float)Math.Acos(q.W) * 2;
+        }
+
+        public static GeometRi.Sphere GeometRiSphere(this Vector3 vector)
+        {
+            return new GeometRi.Sphere(vector.ToGeometRiPoint(), vector.Length());
+        }
+
+        public static double[] ToDoubleVectorArray(this Vector3 vector)
+        {
+            return new double[] { vector.X, vector.Y, vector.Z };
+        }
+
+        public static GeometRi.Point3d ToGeometRiPoint(this Vector3 vector)
+        {
+            return new GeometRi.Point3d(vector.ToDoubleVectorArray());
+        }
+
+        public static Vector3 ToSystemVector(this GeometRi.Point3d point)
+        {
+            return new Vector3((float)point.X, (float)point.Y, (float)point.Z);
+        }
+
+        public static GeometRi.Vector3d ToGeometRiVector(this Vector3 vector)
+        {
+            return new GeometRi.Vector3d(vector.X, vector.Y, vector.Z);
+        }
+
+        public static Matrix4x4 Sum(this List<Matrix4x4> matrices)
+        {
+            Matrix4x4 sum = Matrix4x4.Identity;
+            matrices.ForEach(m => sum += m);
+            return sum;
+        }
+    } 
 
     public class PrintableVector3
     {

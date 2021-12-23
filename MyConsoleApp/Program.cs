@@ -28,7 +28,7 @@ namespace MyConsoleApp
         {
             Console.WriteLine("Hello World!");
 
-            var earthPoints = CreateEarthDataPoints();//.AddSoftIronDistiortion(SemiAxises, Earth);
+            var earthPoints = CreateEarthDataPoints().AddSoftIronDistiortion(SemiAxises, Earth);
             earthPoints.Printable().Write("./earth.csv");
 
             var earthSum = earthPoints.Sum();
@@ -58,7 +58,7 @@ namespace MyConsoleApp
                 Console.WriteLine("bias: " + bias);
 
                 //(h - bias).Rotate(rotationMatrix);//.Normalize(Earth.Length());
-                return (h - bias);
+                return h;
 
             }).ToList().Printable().Write("./data.csv");
 
@@ -80,7 +80,7 @@ namespace MyConsoleApp
         public static Vector3 TestBias { get; } = new Vector3(20, -10, -375);
         static List<Vector3> CreateHardIronBiasedDataPoints()
         {
-            return Vector3.Zero.Sphere(1, 1200).Select(e => e *= Earth.Length()).ToList().AddSoftIronDistiortion(SemiAxises, Earth).Select(e => e += TestBias).ToList();
+            return Vector3.Zero.Sphere(1, 1200).Select(e => e * Earth.Length()).ToList().Select(e => e + TestBias).ToList();
         }
 
         public static Vector3 SemiAxises { get; } = new Vector3(-0.5f, -0.8f, 1.2f);
@@ -327,7 +327,7 @@ namespace MyConsoleApp
             return sum;
         }
 
-        public static List<Vector3> AddSoftIronDistiortion(this List<Vector3> vector, Vector3 semiAxises, Vector3 earth)
+        public static List<Vector3> AddSoftIronDistiortion(this IEnumerable<Vector3> vector, Vector3 semiAxises, Vector3 earth)
         {
             return vector.Select(e => (e) / semiAxises).ToList();
         }

@@ -28,7 +28,7 @@ namespace MyConsoleApp
         {
             Console.WriteLine("Hello World!");
 
-            var earthPoints = CreateEarthDataPoints();
+            var earthPoints = CreateEarthDataPoints();//.AddSoftIronDistiortion(SemiAxises, Earth);
             earthPoints.Printable().Write("./earth.csv");
 
             var earthSum = earthPoints.Sum();
@@ -40,60 +40,25 @@ namespace MyConsoleApp
 
             var hardIron = CreateHardIronBiasedDataPoints();
             // hpoint = e * Earth.Length()) + TestBias
-            CreateHardIronBiasedDataPoints().Select(h =>
+            CreateHardIronBiasedDataPoints().AddSoftIronDistiortion(SemiAxises, Earth).Select(h =>
             {
-                // using clamb approximate bias
-                /*
-                var center = Vector3.Normalize(Earth);
-                var bias = Vector3.Clamp(Vector3.Normalize(h), -center, center);
-                //bias *= Vector3.Dot(h, new Vector3(001f, 001f, 001f));
-                bias *= Earth.Length() - h.Length();
-                Console.WriteLine("bias: " + bias);
-
-                return h - bias; // correct but need to calculate bias more correctly
-                */
-
-                // trying quaternion
-                /*
-                var b = earthPoints.Select(e => Extensions.QuaternionBetween(h, Earth)).ToList().First();
-                //var bias = Vector3.Clamp(h, -b, b);
-                var a = Earth.Rotate(b).Normalize(h.Length());
-                Console.WriteLine(a);
-                */
-
-                /*
-                var a = Earth * h;
-                var b = Earth * -h;
-                Console.WriteLine("----");
-                Console.WriteLine(a + " and " + b);
-                Console.WriteLine(b - a);
-
-
-                var uh = (h / earthSum);
-                Console.WriteLine(uh);
-                Console.WriteLine(Quaternion.Normalize(Extensions.QuaternionBetween(h, uh)));
-                */
-
-
-                /*
-                var x = h.GeometRiSphere().Center.ToSystemVector();
-                //Console.WriteLine(x);
-                
-                var shrink = h / Earth.Length();
-                */
-
-                
+                    
                 var meanCount = 100;
                 var hMean = h.Sphere((int)h.Length(), meanCount).Sum() / meanCount;
 
-                var bias = hMean - earthMean;
+
+                var angle = Quaternion.Normalize(Extensions.QuaternionBetween(h, Earth));//.Yaw();
+
+
+                Console.WriteLine("angle: " + angle);
+                var q = angle;//Quaternion.Inverse(Quaternion.Normalize(Quaternion.CreateFromAxisAngle(Earth, angle)));
+                
+               
+                var bias = hMean;
                 Console.WriteLine("bias: " + bias);
 
-                //var invH = h.Rotate(Quaternion.CreateFromAxisAngle(Vector3.One, Extensions.ToRad(180))).Normalize(h.Length());
-
-                //Console.WriteLine(invH - h );
-
-                return h - bias;
+                //(h - bias).Rotate(rotationMatrix);//.Normalize(Earth.Length());
+                return (h - bias);
 
             }).ToList().Printable().Write("./data.csv");
 
@@ -115,7 +80,7 @@ namespace MyConsoleApp
         public static Vector3 TestBias { get; } = new Vector3(20, -10, -375);
         static List<Vector3> CreateHardIronBiasedDataPoints()
         {
-            return Vector3.Zero.Sphere(1, 1200).Select(e => (e * Earth.Length()) + TestBias).ToList();
+            return Vector3.Zero.Sphere(1, 1200).Select(e => e *= Earth.Length()).ToList().AddSoftIronDistiortion(SemiAxises, Earth).Select(e => e += TestBias).ToList();
         }
 
         public static Vector3 SemiAxises { get; } = new Vector3(-0.5f, -0.8f, 1.2f);
@@ -124,8 +89,8 @@ namespace MyConsoleApp
         static List<Vector3> CreateSoftIronBiasedDataPoints()
         {
             return Vector3.Zero.Sphere(1, 1200).Select(e => (e * Earth.Length()) / SemiAxises).ToList();
-
         }
+
 
 
         // test adding and removed vectors prior to and after rotation 
@@ -148,7 +113,7 @@ namespace MyConsoleApp
 
     static class Extensions
     {
-        public static double Yaw(this Quaternion q)
+        public static float Yaw(this Quaternion q)
         {
             q = Quaternion.Normalize(new Quaternion(0, 0, q.Z, q.W));
             return (float)(2 * Math.Acos(q.W));
@@ -360,6 +325,11 @@ namespace MyConsoleApp
             Matrix4x4 sum = Matrix4x4.Identity;
             matrices.ForEach(m => sum += m);
             return sum;
+        }
+
+        public static List<Vector3> AddSoftIronDistiortion(this List<Vector3> vector, Vector3 semiAxises, Vector3 earth)
+        {
+            return vector.Select(e => (e) / semiAxises).ToList();
         }
     } 
 

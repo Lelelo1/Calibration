@@ -28,6 +28,8 @@ namespace MyConsoleApp
         public static Vector3 TestBias { get; } = new Vector3(20, -10, -375);
         public static Vector3 TestSemiAxises { get; } = new Vector3(-0.1f, -0.2f, 0.4f);
 
+        public static int Count { get; } = 1200;
+
         static void Main(string[] args)
         {
             Console.WriteLine("Hello World!");
@@ -35,20 +37,25 @@ namespace MyConsoleApp
             var earthPoints = CreateEarthDataPoints();
             earthPoints.Printable().Write("./earth.csv");
 
-            var earthSum = earthPoints.Sum();
-            Console.WriteLine(earthSum);
-            var earthMean = earthSum / 1200;
+            var earthSum = earthPoints.Mean();
 
-            CreateEarthDataPoints().AddSoftIronDistiortion(TestSemiAxises).AddHardIronDistortion(TestBias).Select(Calculate).Printable().Write("./data.csv");
+            CreateEarthDataPoints()/*.AddSoftIronDistiortion(TestSemiAxises)*/.AddHardIronDistortion(TestBias).Select(Calculate).Printable().Write("./data.csv");
 
             
         }
 
         static Vector3 Calculate(Vector3 p)
         {
-            var cm = p - TestBias;
+            p = HardIronCompensatePoint(p);
 
-            return cm;
+            return p.Normalize(Earth.Length());
+        }
+
+        static Vector3 HardIronCompensatePoint(Vector3 p)
+        {
+            var pMean = p.Sphere((int)Earth.Length(), Count).Mean();
+
+            return p - pMean;
         }
 
         static List<Vector3> CreateEarthDataPoints()
@@ -340,6 +347,11 @@ namespace MyConsoleApp
             return vector.Select(e => (e) + hardIron);
         }
 
+        public static Vector3 Mean(this IEnumerable<Vector3> vectors)
+        {
+            var count = vectors.Count();
+            return vectors.Sum() / count;
+        }
     } 
 
     public class PrintableVector3

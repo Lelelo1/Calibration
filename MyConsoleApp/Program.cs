@@ -23,53 +23,32 @@ namespace MyConsoleApp
         public static Vector3 Earth { get; } = new Vector3(NormEast, NormNorth, NormVertical);
 
 
+        // simulation
+
+        public static Vector3 TestBias { get; } = new Vector3(20, -10, -375);
+        public static Vector3 TestSemiAxises { get; } = new Vector3(-0.1f, -0.2f, 0.4f);
 
         static void Main(string[] args)
         {
             Console.WriteLine("Hello World!");
 
-            var earthPoints = CreateEarthDataPoints().AddSoftIronDistiortion(SemiAxises, Earth);
+            var earthPoints = CreateEarthDataPoints();
             earthPoints.Printable().Write("./earth.csv");
 
             var earthSum = earthPoints.Sum();
             Console.WriteLine(earthSum);
             var earthMean = earthSum / 1200;
 
+            CreateEarthDataPoints().AddSoftIronDistiortion(TestSemiAxises).AddHardIronDistortion(TestBias).Select(Calculate).Printable().Write("./data.csv");
 
+            
+        }
 
+        static Vector3 Calculate(Vector3 p)
+        {
+            var cm = p - TestBias;
 
-            var hardIron = CreateHardIronBiasedDataPoints();
-            // hpoint = e * Earth.Length()) + TestBias
-            CreateHardIronBiasedDataPoints().AddSoftIronDistiortion(SemiAxises, Earth).Select(h =>
-            {
-                    
-                var meanCount = 100;
-                var hMean = h.Sphere((int)h.Length(), meanCount).Sum() / meanCount;
-
-
-                var angle = Quaternion.Normalize(Extensions.QuaternionBetween(h, Earth));//.Yaw();
-
-
-                Console.WriteLine("angle: " + angle);
-                var q = angle;//Quaternion.Inverse(Quaternion.Normalize(Quaternion.CreateFromAxisAngle(Earth, angle)));
-                
-               
-                var bias = hMean;
-                Console.WriteLine("bias: " + bias);
-
-                //(h - bias).Rotate(rotationMatrix);//.Normalize(Earth.Length());
-                return h;
-
-            }).ToList().Printable().Write("./data.csv");
-
-            //CreateSoftIronBiasedDataPoints();
-
-            Console.WriteLine(new Vector3(-36.12f, -12.56f, -32.89f).Length());
-            // with one:
-            // 3.8460116, 7.2826767, 11.321257>
-            // <0.027889848, -0.05362284, 0.025732994>
-            var o = 2 * 6 - 4;
-            Console.WriteLine("" + o);
+            return cm;
         }
 
         static List<Vector3> CreateEarthDataPoints()
@@ -77,7 +56,9 @@ namespace MyConsoleApp
             return Vector3.Zero.Sphere(1, 1200).Select(e => e * Earth.Length()).ToList();
         }
 
-        public static Vector3 TestBias { get; } = new Vector3(20, -10, -375);
+
+        // use 'CreateEarthDataPoints' wwith extension methods instead
+        /*
         static List<Vector3> CreateHardIronBiasedDataPoints()
         {
             return Vector3.Zero.Sphere(1, 1200).Select(e => e * Earth.Length()).ToList().Select(e => e + TestBias).ToList();
@@ -90,7 +71,7 @@ namespace MyConsoleApp
         {
             return Vector3.Zero.Sphere(1, 1200).Select(e => (e * Earth.Length()) / SemiAxises).ToList();
         }
-
+        */
 
 
         // test adding and removed vectors prior to and after rotation 
@@ -180,6 +161,28 @@ namespace MyConsoleApp
             return new Vector3((float)x, (float)y, (float)z);
         }
 
+        static Vector3 RandomEllipsoidPoint(Vector3 vector, Vector3 semiAxises)
+        {
+            var u = new Random().NextDouble();
+            var v = new Random().NextDouble();
+            var theta = 2 * Math.PI * u;
+            var phi = Math.Acos(2 * v - 1);
+            var x = (vector.X + (Math.Sin(phi) * Math.Cos(theta))) / semiAxises.X;
+            var y = (vector.Y + (Math.Sin(phi) * Math.Sin(theta))) / semiAxises.Y;
+            var z = (vector.Z + (Math.Cos(phi))) / semiAxises.Z;
+            return new Vector3((float)x, (float)y, (float)z);
+        }
+
+        public static List<Vector3> Ellipsoid(this Vector3 vector, Vector3 semiAxises, int count = 10000)
+        {
+            var list = new List<Vector3>();
+            for (var i = 0; i < count; i++)
+            {
+                list.Add(RandomEllipsoidPoint(vector, semiAxises));
+            }
+            return list;
+        }
+
         /*
         static List<Vector> DistributedVector4(this Vector3 vector, int count)
         {
@@ -210,13 +213,13 @@ namespace MyConsoleApp
             // from: https://stackoverflow.com/questions/31600717/how-to-generate-a-random-quaternion-quickly
         }
 
-        public static List<PrintableVector3> Printable(this List<Vector3> data)
+        public static IEnumerable<PrintableVector3> Printable(this IEnumerable<Vector3> data)
         {
-            return data.Select(d => new PrintableVector3(d.X, d.Y, d.Z)).ToList();
+            return data.Select(d => new PrintableVector3(d.X, d.Y, d.Z));
         }
 
         // can't write 'Vector3' directly with 'CSVHelper' nuget
-        public static void Write(this List<PrintableVector3> data, string path)
+        public static void Write(this IEnumerable<PrintableVector3> data, string path)
         {
             CsvConfiguration configuration = new CsvConfiguration(CultureInfo.InvariantCulture);
             configuration.HasHeaderRecord = false;
@@ -233,17 +236,17 @@ namespace MyConsoleApp
             return v * norm / v.Length();
         }
 
-        public static Vector3 Sum(this List<Vector3> vectors)
+        public static Vector3 Sum(this IEnumerable<Vector3> vectors)
         {
             Vector3 sum = Vector3.Zero;
-            vectors.ForEach(v => sum += v);
+            vectors.ToList().ForEach(v => sum += v);
             return sum;
         }
 
-        public static Quaternion Sum(this List<Quaternion> vectors)
+        public static Quaternion Sum(this IEnumerable<Quaternion> vectors)
         {
             Quaternion sum = Quaternion.Identity;
-            vectors.ForEach(v => sum += v);
+            vectors.ToList().ForEach(v => sum += v);
             return sum;
         }
 
@@ -327,10 +330,16 @@ namespace MyConsoleApp
             return sum;
         }
 
-        public static List<Vector3> AddSoftIronDistiortion(this IEnumerable<Vector3> vector, Vector3 semiAxises, Vector3 earth)
+        public static IEnumerable<Vector3> AddSoftIronDistiortion(this IEnumerable<Vector3> vector, Vector3 semiAxises)
         {
-            return vector.Select(e => (e) / semiAxises).ToList();
+            return vector.Select(e => (e) / semiAxises);
         }
+
+        public static IEnumerable<Vector3> AddHardIronDistortion(this IEnumerable<Vector3> vector, Vector3 hardIron)
+        {
+            return vector.Select(e => (e) + hardIron);
+        }
+
     } 
 
     public class PrintableVector3

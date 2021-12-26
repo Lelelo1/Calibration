@@ -6,6 +6,7 @@ using System.Linq;
 using System.Numerics;
 using CsvHelper;
 using CsvHelper.Configuration;
+using CsvHelper.Configuration.Attributes;
 
 namespace MyConsoleApp
 {
@@ -25,37 +26,75 @@ namespace MyConsoleApp
 
         // simulation
 
-        public static Vector3 TestBias { get; } = new Vector3(20, -10, -375);
-        public static Vector3 TestSemiAxises { get; } = new Vector3(-0.1f, -0.2f, 0.4f);
+        public static Vector3 TestBias { get; } = new Vector3(-20, 110, -375);
+        public static Vector3 TestSemiAxises { get; } = new Vector3(-0.8f, 1.2f, -2f);
 
         public static int Count { get; } = 1200;
+
+        static IEnumerable<Vector3> EarthPoints { get; } = CreateEarthDataPoints();
 
         static void Main(string[] args)
         {
             Console.WriteLine("Hello World!");
 
-            var earthPoints = CreateEarthDataPoints();
-            earthPoints.Printable().Write("./earth.csv");
+            Extensions.ReadDistortedMag().Take(10).ToList().ForEach(m => {
+                Console.WriteLine(m);
+            });
 
-            var earthSum = earthPoints.Mean();
+            return;
+            /*
+            EarthPoints.Printable().Write("./earth.csv");
 
-            CreateEarthDataPoints()/*.AddSoftIronDistiortion(TestSemiAxises)*/.AddHardIronDistortion(TestBias).Select(Calculate).Printable().Write("./data.csv");
+            var earthSum = EarthPoints.Mean();
 
+            CreateEarthDataPoints().AddSoftIronDistiortion(TestSemiAxises).AddHardIronDistortion(TestBias).Select(Calculate).Printable().Write("./data.csv");
+            */
             
         }
 
+
+        static List<Vector3> means = new List<Vector3>();
         static Vector3 Calculate(Vector3 p)
         {
-            p = HardIronCompensatePoint(p);
+            var mean = HardIronCalculatePoint(p);
+            means.Add(mean);
+            var outerMean = means.Mean();
 
-            return p.Normalize(Earth.Length());
+            p -= outerMean;
+
+            var q = -Matrix4x4.CreateScale(Vector3.Normalize(Earth));
+
+            return p.Rotate(q);
         }
 
-        static Vector3 HardIronCompensatePoint(Vector3 p)
-        {
-            var pMean = p.Sphere((int)Earth.Length(), Count).Mean();
+  
 
-            return p - pMean;
+        public static Vector3 EarthMean { get; } = Earth.Sphere((int)Earth.Length()).Mean();
+        public static Vector3 PMean(Vector3 v)
+        {
+            return v.Sphere((int)Earth.Length()).Mean();
+        }
+
+        static Vector3 HardIronCalculatePoint(Vector3 p)
+        {
+            return p.Sphere((int) Earth.Length(), Count).Mean();
+        }
+
+        static Vector3 PointA { get; } = new Vector3(-54.92f, -8.483f, -11.7f);
+        static Vector3 PointB { get; } = new Vector3(-52.56f, -8.556f, -14.55f);
+
+        static void SoftIronCalculatePoint(Vector3 p)
+        {
+
+            /*
+            // 2.3599968, 0.072999954, 2.850000
+            var diff = p1 - p2;
+            Console.WriteLine(diff);
+            */
+
+
+            Console.WriteLine(Extensions.QuaternionBetween(PointA, PointB));
+
         }
 
         static List<Vector3> CreateEarthDataPoints()
@@ -81,10 +120,10 @@ namespace MyConsoleApp
         */
 
 
-        // test adding and removed vectors prior to and after rotation 
+            // test adding and removed vectors prior to and after rotation 
 
-        // https://www.nxp.com/docs/en/application-note/AN4246.pdf
-        public static Matrix4x4 SoftIronMatrix(double rads)
+            // https://www.nxp.com/docs/en/application-note/AN4246.pdf
+            public static Matrix4x4 SoftIronMatrix(double rads)
         {
             var matrix = new Matrix4x4(
                 (float)Math.Cos(rads), (float)Math.Sin(rads), 0, 0,
@@ -300,10 +339,6 @@ namespace MyConsoleApp
             return new Vector3((float)ax, (float)ay, (float)az);
         }
 
-        public static float AngleRads(Quaternion q)
-        {
-            return (float)Math.Acos(q.W) * 2;
-        }
 
         public static GeometRi.Sphere GeometRiSphere(this Vector3 vector)
         {
@@ -352,6 +387,40 @@ namespace MyConsoleApp
             var count = vectors.Count();
             return vectors.Sum() / count;
         }
+
+        public static float AngleRads(this Quaternion quaternion)
+        {
+            return (float)(Math.Acos(quaternion.W) * 2);
+            // https://stackoverflow.com/questions/52584715/how-can-i-convert-a-quaternion-to-an-angle?rq=1
+        }
+
+        public static float Slope(this Vector3 v1, Vector3 v2)
+        {
+            var dx = v1.X - v2.X;
+            var dy = v1.Y - v2.Y;
+
+            return dy / dx;
+        }
+
+        public static IEnumerable<Vector3> ReadDistortedMag()
+        {
+            
+            var text = File.ReadAllLines("/Users/lelelo1/Projects/MyConsoleApp/MyConsoleApp/RealDistortedMag.txt");
+
+            var readings = text.Select(s =>
+            {
+                var line = s.Split(" ");
+                var x = float.Parse(line[1]);
+                var y = float.Parse(line[2]);
+                var z = float.Parse(line[3]);
+
+                return new Vector3(x, y, z);
+            });
+
+
+            return readings;
+
+        }
     } 
 
     public class PrintableVector3
@@ -365,6 +434,31 @@ namespace MyConsoleApp
             X = x;
             Y = y;
             Z = z;
+        }
+    }
+
+    public class ReadTyrexMagData
+    {
+        [Index(0)]
+        public float A { get; }
+        [Index(1)]
+        public float B { get; }
+        [Index(2)]
+        public float C { get; }
+        [Index(3)]
+        public float D { get; }
+
+        public ReadTyrexMagData(float a, float b, float c, float d)
+        {
+            A = a;
+            B = b;
+            C = c;
+            D = d;
+        }
+
+        public Vector3 Get()
+        {
+            return new Vector3(B, C, D);
         }
     }
 }

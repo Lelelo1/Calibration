@@ -31,40 +31,49 @@ namespace MyConsoleApp
 
         public static int Count { get; } = 1200;
 
-        static IEnumerable<Vector3> EarthPoints { get; } = CreateEarthDataPoints();
+        static IEnumerable<Vector3> EarthPoints { get; } = CreateDataPoints(Earth.Length());
 
         static void Main(string[] args)
         {
             Console.WriteLine("Hello World!");
 
-            Extensions.ReadDistortedMag().Take(10).ToList().ForEach(m => {
-                Console.WriteLine(m);
-            });
 
-            return;
-            /*
+            // unit dimensions. understand numerics operations better
+            //CreateDataPoints(1).Printable().Write("./earth.csv");
+            //CreateDataPoints(1).Select(Calculate).Printable().Write("./data.csv");
+
             EarthPoints.Printable().Write("./earth.csv");
 
-            var earthSum = EarthPoints.Mean();
+            // weird trail of points
+            Extensions.ReadDistortedMag().ToList().Select(Calculate).Printable().Write("./data.csv");
 
-            CreateEarthDataPoints().AddSoftIronDistiortion(TestSemiAxises).AddHardIronDistortion(TestBias).Select(Calculate).Printable().Write("./data.csv");
-            */
-            
+            // is it accurate to model this way?
+            //var earthSum = EarthPoints.Mean();
+            //CreateEarthDataPoints().AddSoftIronDistiortion(TestSemiAxises).AddHardIronDistortion(TestBias).Select(Calculate).Printable().Write("./data.csv");
+
+
         }
 
 
         static List<Vector3> means = new List<Vector3>();
+        static List<Quaternion> qs = new List<Quaternion>();
         static Vector3 Calculate(Vector3 p)
         {
             var mean = HardIronCalculatePoint(p);
             means.Add(mean);
             var outerMean = means.Mean();
 
-            p -= outerMean;
+            p -= outerMean; // works
 
-            var q = -Matrix4x4.CreateScale(Vector3.Normalize(Earth));
+            var q = Extensions.QuaternionBetween(Earth, p);
+            Console.WriteLine(q);
+            p = Earth.Rotate(q);
 
-            return p.Rotate(q);
+            //p = new Vector3(-2.043f, 5.17f, -11.65f);
+            //p = p.Rotate(Matrix4x4.CreateScale(new Vector3(1f, 1f, 1f)));
+            
+            return p;
+            
         }
 
   
@@ -80,9 +89,6 @@ namespace MyConsoleApp
             return p.Sphere((int) Earth.Length(), Count).Mean();
         }
 
-        static Vector3 PointA { get; } = new Vector3(-54.92f, -8.483f, -11.7f);
-        static Vector3 PointB { get; } = new Vector3(-52.56f, -8.556f, -14.55f);
-
         static void SoftIronCalculatePoint(Vector3 p)
         {
 
@@ -93,13 +99,11 @@ namespace MyConsoleApp
             */
 
 
-            Console.WriteLine(Extensions.QuaternionBetween(PointA, PointB));
-
         }
 
-        static List<Vector3> CreateEarthDataPoints()
+        static List<Vector3> CreateDataPoints(float norm)
         {
-            return Vector3.Zero.Sphere(1, 1200).Select(e => e * Earth.Length()).ToList();
+            return Vector3.Zero.Sphere(1, 1200).Select(e => e * norm).ToList();
         }
 
 
@@ -421,6 +425,8 @@ namespace MyConsoleApp
             return readings;
 
         }
+
+ 
     } 
 
     public class PrintableVector3

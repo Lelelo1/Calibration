@@ -13,6 +13,7 @@ namespace MyConsoleApp
             
         }
         */
+
         static double[] DoubleArray(System.Numerics.Vector3 vector)
         {
             return new double[] { vector.X, vector.Y, vector.Z };

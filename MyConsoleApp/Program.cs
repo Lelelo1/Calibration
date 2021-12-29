@@ -7,7 +7,7 @@ using System.Numerics;
 using CsvHelper;
 using CsvHelper.Configuration;
 using CsvHelper.Configuration.Attributes;
-
+using g3;
 namespace MyConsoleApp
 {
     class Program
@@ -31,42 +31,38 @@ namespace MyConsoleApp
 
         public static int Count { get; } = 1200;
 
-        static IEnumerable<Vector3> EarthPoints { get; } = CreateDataPoints(Earth.Length());
+        //static IEnumerable<Vector3> EarthPoints { get; } = CreateDataPoints(Earth.Length());
+
+        static SphericalFibonacciPointSet EarthPoints = new SphericalFibonacciPointSet(Count);
 
         static void Main(string[] args)
         {
             Console.WriteLine("Hello World!");
 
+            CreateDataPoints(1).Select(Calculate).Printable().Write("./data.csv");
 
-            // unit dimensions. understand numerics operations better
-            //CreateDataPoints(1).Printable().Write("./earth.csv");
-            //CreateDataPoints(1).Select(Calculate).Printable().Write("./data.csv");
 
-            EarthPoints.Printable().Write("./earth.csv");
+            EarthPoints.ToPointToSystemVectors().Select(e => e.Normalize(Earth.Length())).Printable().Write("./earth.csv");
 
             // weird trail of points
-            Extensions.ReadDistortedMag().ToList().Select(Calculate).Printable().Write("./data.csv");
+            //Extensions.ReadDistortedMag().ToList().Select(Calculate).Select(e => e.Normalize(50)).Printable().Write("./data.csv");
 
+            /*
             // is it accurate to model this way?
             //var earthSum = EarthPoints.Mean();
-            //CreateEarthDataPoints().AddSoftIronDistiortion(TestSemiAxises).AddHardIronDistortion(TestBias).Select(Calculate).Printable().Write("./data.csv");
-
-
+            EarthPoints.AddHardIronDistortion(TestBias).AddSoftIronDistiortion(TestSemiAxises).Select(Calculate).Printable().Write("./data.csv");
+            */
+            Console.WriteLine("Done");
         }
 
 
-        static List<Vector3> means = new List<Vector3>();
+        // can't user means between point it require mannual calibration
+        // static List<Vector3> means = new List<Vector3>();
         static List<Quaternion> qs = new List<Quaternion>();
         static Vector3 Calculate(Vector3 p)
         {
-            var mean = HardIronCalculatePoint(p);
-            means.Add(mean);
-            var outerMean = means.Mean();
-
-            p -= outerMean; // works
-
+            
             var q = Extensions.QuaternionBetween(Earth, p);
-            Console.WriteLine(q);
             p = Earth.Rotate(q);
 
             //p = new Vector3(-2.043f, 5.17f, -11.65f);
@@ -84,11 +80,6 @@ namespace MyConsoleApp
             return v.Sphere((int)Earth.Length()).Mean();
         }
 
-        static Vector3 HardIronCalculatePoint(Vector3 p)
-        {
-            return p.Sphere((int) Earth.Length(), Count).Mean();
-        }
-
         static void SoftIronCalculatePoint(Vector3 p)
         {
 
@@ -103,7 +94,7 @@ namespace MyConsoleApp
 
         static List<Vector3> CreateDataPoints(float norm)
         {
-            return Vector3.Zero.Sphere(1, 1200).Select(e => e * norm).ToList();
+            return Vector3.Zero.Sphere(1200).Select(e => e * norm).ToList();
         }
 
 
@@ -189,48 +180,30 @@ namespace MyConsoleApp
             return Vector3.Transform(v, RandomQuaternion());
         }
 
-        public static List<Vector3> Sphere(this Vector3 vector, int radius, int count = 10000)
+        public static List<Vector3> Sphere(this Vector3 vector, int count = 10000)
         {
-            var list = new List<Vector3>();
-            for (var i = 0; i < count; i++)
+            var sphere = new List<Vector3>();
+
+            var phi = Math.PI * (3 - Math.Sqrt(0.5));
+
+            for(int i = 0; i < count; i++ )
             {
-                list.Add(RandomSpherePoint(vector, radius));
+                var y = 1 - (i / (count - 1)) * 2;
+                var radius = Math.Sqrt(1 - y * y);
+
+                var theta = phi * i;
+
+                var x = Math.Cos(theta) * radius;
+                var z = Math.Sin(theta) * radius;
+
+                sphere.Add(new Vector3((float) x, (float)y, (float)z));
+
             }
-            return list;
-        }
 
-        static Vector3 RandomSpherePoint(Vector3 vector, int radius)
-        {
-            var u = new Random().NextDouble();
-            var v = new Random().NextDouble();
-            var theta = 2 * Math.PI * u;
-            var phi = Math.Acos(2 * v - 1);
-            var x = vector.X + (radius * Math.Sin(phi) * Math.Cos(theta));
-            var y = vector.Y + (radius * Math.Sin(phi) * Math.Sin(theta));
-            var z = vector.Z + (radius * Math.Cos(phi));
-            return new Vector3((float)x, (float)y, (float)z);
-        }
 
-        static Vector3 RandomEllipsoidPoint(Vector3 vector, Vector3 semiAxises)
-        {
-            var u = new Random().NextDouble();
-            var v = new Random().NextDouble();
-            var theta = 2 * Math.PI * u;
-            var phi = Math.Acos(2 * v - 1);
-            var x = (vector.X + (Math.Sin(phi) * Math.Cos(theta))) / semiAxises.X;
-            var y = (vector.Y + (Math.Sin(phi) * Math.Sin(theta))) / semiAxises.Y;
-            var z = (vector.Z + (Math.Cos(phi))) / semiAxises.Z;
-            return new Vector3((float)x, (float)y, (float)z);
-        }
+            // https://stackoverflow.com/questions/9600801/evenly-distributing-n-points-on-a-sphere
 
-        public static List<Vector3> Ellipsoid(this Vector3 vector, Vector3 semiAxises, int count = 10000)
-        {
-            var list = new List<Vector3>();
-            for (var i = 0; i < count; i++)
-            {
-                list.Add(RandomEllipsoidPoint(vector, semiAxises));
-            }
-            return list;
+            return sphere;
         }
 
         /*
@@ -343,32 +316,6 @@ namespace MyConsoleApp
             return new Vector3((float)ax, (float)ay, (float)az);
         }
 
-
-        public static GeometRi.Sphere GeometRiSphere(this Vector3 vector)
-        {
-            return new GeometRi.Sphere(vector.ToGeometRiPoint(), vector.Length());
-        }
-
-        public static double[] ToDoubleVectorArray(this Vector3 vector)
-        {
-            return new double[] { vector.X, vector.Y, vector.Z };
-        }
-
-        public static GeometRi.Point3d ToGeometRiPoint(this Vector3 vector)
-        {
-            return new GeometRi.Point3d(vector.ToDoubleVectorArray());
-        }
-
-        public static Vector3 ToSystemVector(this GeometRi.Point3d point)
-        {
-            return new Vector3((float)point.X, (float)point.Y, (float)point.Z);
-        }
-
-        public static GeometRi.Vector3d ToGeometRiVector(this Vector3 vector)
-        {
-            return new GeometRi.Vector3d(vector.X, vector.Y, vector.Z);
-        }
-
         public static Matrix4x4 Sum(this List<Matrix4x4> matrices)
         {
             Matrix4x4 sum = Matrix4x4.Identity;
@@ -426,7 +373,18 @@ namespace MyConsoleApp
 
         }
 
- 
+        public static List<Vector3> ToPointToSystemVectors(this SphericalFibonacciPointSet sphericalFibonacciPointSet)
+        {
+            var list = new List<Vector3>();
+            for(int i = 0; i < sphericalFibonacciPointSet.Count; i++)
+            {
+                var p = sphericalFibonacciPointSet.Point(i);
+
+                list.Add(new Vector3((float)p.x, (float)p.y, (float)p.z));
+            }
+
+            return list;
+        }
     } 
 
     public class PrintableVector3

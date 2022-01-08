@@ -8,6 +8,9 @@ using CsvHelper;
 using CsvHelper.Configuration;
 using CsvHelper.Configuration.Attributes;
 using g3;
+using Geo;
+using Geo.Geomagnetism;
+
 namespace MyConsoleApp
 {
     class Program
@@ -61,6 +64,12 @@ namespace MyConsoleApp
             DataPoints.AddHardIronDistortion(TestBias).Select(Calculate).Printable().Write("./data.csv");
             
             Console.WriteLine("Done");
+
+            Geo.Geomagnetism.GeomagnetismCalculator calculator = new Geo.Geomagnetism.GeomagnetismCalculator(57.7027141, 11.916687);
+
+            var result = calculator.TryCalculate(new Coordinate(57.7027141, 11.916687), DateTime.UtcNow);
+
+            var vector = new Vector3((float)result.X, (float)result.Y, (float)result.Z);
         }
 
         
@@ -77,11 +86,7 @@ namespace MyConsoleApp
         static List<Vector3> MeanCenter { get; } = new List<Vector3>();
         static Vector3 Calculate(Vector3 p)
         {
-            MeanCenter.Add(Center(p, 0.5f));
-            var mean = MeanCenter.Mean();
-            Console.WriteLine("mean: " + mean);
-            p = mean - p;
-            p += Earth;
+            p = EarthPoints.ToNearest(p);
             Console.WriteLine("p: " + p);
             return p;
 
@@ -415,6 +420,11 @@ namespace MyConsoleApp
             var qZ = Quaternion.CreateFromAxisAngle(Vector3.UnitZ, radsRotate);
 
             return vector.Rotate(qX).Rotate(qY).Rotate(qZ);
+        }
+
+        public static Vector3 ToNearest(this IEnumerable<Vector3> vectors, Vector3 vector)
+        {
+            return vectors.OrderByDescending(v => Vector3.Distance(v, vector)).Last();
         }
     }
 

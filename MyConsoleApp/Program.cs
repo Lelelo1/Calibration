@@ -65,19 +65,24 @@ namespace MyConsoleApp
 
         
 
-        static Vector3 Center(Vector3 vector)
+        static Vector3 Center(Vector3 vector, float weight)
         {
             
-            var lerpCenter = Vector3.Lerp(vector, vector.RotateOpposite(), 0.5f);
+            var lerpCenter = Vector3.Lerp(vector, vector.RotateOpposite(), weight);
             Console.WriteLine("lerpCenter: " + lerpCenter);
             return lerpCenter;
         }
         
         static Vector3 Last { get; set; } = Vector3.One;
+        static List<Vector3> MeanCenter { get; } = new List<Vector3>();
         static Vector3 Calculate(Vector3 p)
         {
-            p = TestBias - Center(p);
-            Console.WriteLine(p);
+            MeanCenter.Add(Center(p, 0.5f));
+            var mean = MeanCenter.Mean();
+            Console.WriteLine("mean: " + mean);
+            p = mean - p;
+            p += Earth;
+            Console.WriteLine("p: " + p);
             return p;
 
         }
@@ -274,6 +279,13 @@ namespace MyConsoleApp
             return sum;
         }
 
+        public static Vector3 Subtract(this IEnumerable<Vector3> vectors, Vector3 s)
+        {
+            Vector3 t = Vector3.Zero;
+            vectors.ToList().ForEach(v => t += v - s);
+            return t;
+        }
+
         public static Quaternion Sum(this IEnumerable<Quaternion> vectors)
         {
             Quaternion sum = Quaternion.Identity;
@@ -402,7 +414,7 @@ namespace MyConsoleApp
             var qY = Quaternion.CreateFromAxisAngle(Vector3.UnitY, radsRotate);
             var qZ = Quaternion.CreateFromAxisAngle(Vector3.UnitZ, radsRotate);
 
-            return vector.Rotate(qX * qY * qZ);
+            return vector.Rotate(qX).Rotate(qY).Rotate(qZ);
         }
     }
 

@@ -27,52 +27,60 @@ namespace MyConsoleApp
         // simulation
 
         public static Vector3 TestBias { get; } = new Vector3(-20, 110, -375);
-        public static Vector3 TestSemiAxises { get; } = new Vector3(-0.8f, 1.2f, -2f);
+        public static Vector3 TestStretch { get; } = new Vector3(-0.8f, 1.2f, -2f);
 
         public static int Count { get; } = 1200;
 
         //static IEnumerable<Vector3> EarthPoints { get; } = CreateDataPoints(Earth.Length());
 
-        static SphericalFibonacciPointSet EarthPoints = new SphericalFibonacciPointSet(Count);
+        static IEnumerable<Vector3> EarthPoints = new SphericalFibonacciPointSet(Count).ToPointToSystemVectors();
+
+        static Vector3 EarthSphereCenter { get; } = Earth - Earth / 2;
+
+        static IEnumerable<Vector3> DataPoints { get; } = EarthPoints.Select(e => e.Normalize(Earth.Length()));
 
         static void Main(string[] args)
         {
             Console.WriteLine("Hello World!");
 
-            CreateDataPoints(1).Select(Calculate).Printable().Write("./data.csv");
+            //CreateDataPoints(1).Select(Calculate).Printable().Write("./data.csv");
 
 
-            EarthPoints.ToPointToSystemVectors().Select(e => e.Normalize(Earth.Length())).Printable().Write("./earth.csv");
+            EarthPoints.Select(e => e.Normalize(Earth.Length())).Printable().Write("./earth.csv");
 
             // weird trail of points
-            //Extensions.ReadDistortedMag().ToList().Select(Calculate).Select(e => e.Normalize(50)).Printable().Write("./data.csv");
+            //Extensions.ReadDistortedMag().AddHardIronDistortion(TestBias).Select(Calculate).Select(e => e.Normalize(50)).Printable().Write("./data.csv");
 
-            /*
+            
             // is it accurate to model this way?
             //var earthSum = EarthPoints.Mean();
-            EarthPoints.AddHardIronDistortion(TestBias).AddSoftIronDistiortion(TestSemiAxises).Select(Calculate).Printable().Write("./data.csv");
-            */
+            //EarthPoints.Select(e => e.Normalize(Earth.Length())).AddHardIronDistortion(new Vector3(0, 0, 100)).Select(Calculate).Printable().Write("./data.csv");
+
+            // can I dnot used
+
+            DataPoints.AddHardIronDistortion(TestBias).Select(Calculate).Printable().Write("./data.csv");
+            
             Console.WriteLine("Done");
         }
 
+        
 
-        // can't user means between point it require mannual calibration
-        // static List<Vector3> means = new List<Vector3>();
-        static List<Quaternion> qs = new List<Quaternion>();
-        static Vector3 Calculate(Vector3 p)
+        static Vector3 Center(Vector3 vector)
         {
             
-            var q = Extensions.QuaternionBetween(Earth, p);
-            p = Earth.Rotate(q);
-
-            //p = new Vector3(-2.043f, 5.17f, -11.65f);
-            //p = p.Rotate(Matrix4x4.CreateScale(new Vector3(1f, 1f, 1f)));
-            
-            return p;
-            
+            var lerpCenter = Vector3.Lerp(vector, vector.RotateOpposite(), 0.5f);
+            Console.WriteLine("lerpCenter: " + lerpCenter);
+            return lerpCenter;
         }
+        
+        static Vector3 Last { get; set; } = Vector3.One;
+        static Vector3 Calculate(Vector3 p)
+        {
+            p = TestBias - Center(p);
+            Console.WriteLine(p);
+            return p;
 
-  
+        }
 
         public static Vector3 EarthMean { get; } = Earth.Sphere((int)Earth.Length()).Mean();
         public static Vector3 PMean(Vector3 v)
@@ -385,7 +393,19 @@ namespace MyConsoleApp
 
             return list;
         }
-    } 
+
+        public static Vector3 RotateOpposite(this Vector3 vector)
+        {
+            var radsRotate = Extensions.ToRad(180);
+
+            var qX = Quaternion.CreateFromAxisAngle(Vector3.UnitX, radsRotate);
+            var qY = Quaternion.CreateFromAxisAngle(Vector3.UnitY, radsRotate);
+            var qZ = Quaternion.CreateFromAxisAngle(Vector3.UnitZ, radsRotate);
+
+            return vector.Rotate(qX * qY * qZ);
+        }
+    }
+
 
     public class PrintableVector3
     {

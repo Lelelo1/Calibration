@@ -8,8 +8,7 @@ using CsvHelper;
 using CsvHelper.Configuration;
 using CsvHelper.Configuration.Attributes;
 using g3;
-using Geo;
-using Geo.Geomagnetism;
+
 
 namespace MyConsoleApp
 {
@@ -46,38 +45,36 @@ namespace MyConsoleApp
         {
             Console.WriteLine("Hello World!");
 
-            //CreateDataPoints(1).Select(Calculate).Printable().Write("./data.csv");
+            //EarthPoints.Select(e => e.Normalize(Earth.Length())).Printable().Write("./earth.csv");
 
-
-            EarthPoints.Select(e => e.Normalize(Earth.Length())).Printable().Write("./earth.csv");
-
-            // weird trail of points
-            //Extensions.ReadDistortedMag().AddHardIronDistortion(TestBias).Select(Calculate).Select(e => e.Normalize(50)).Printable().Write("./data.csv");
-
-            
-            // is it accurate to model this way?
-            //var earthSum = EarthPoints.Mean();
-            //EarthPoints.Select(e => e.Normalize(Earth.Length())).AddHardIronDistortion(new Vector3(0, 0, 100)).Select(Calculate).Printable().Write("./data.csv");
-
-            // can I dnot used
-
-            DataPoints.AddHardIronDistortion(TestBias).Select(Calculate).Printable().Write("./data.csv");
+            //DataPoints.AddHardIronDistortion(TestBias).Select(Calculate).Printable().Write("./data.csv");
             
             Console.WriteLine("Done");
+            Console.WriteLine(Earth);
+            Console.WriteLine(Center(Earth, 0.5f));
 
-            Geo.Geomagnetism.GeomagnetismCalculator calculator = new Geo.Geomagnetism.GeomagnetismCalculator(57.7027141, 11.916687);
+            /*
+            var geo = _Geo.Instance.Get(57.7089, 11.9746, DateTime.Now);
 
-            var result = calculator.TryCalculate(new Coordinate(57.7027141, 11.916687), DateTime.UtcNow);
 
-            var vector = new Vector3((float)result.X, (float)result.Y, (float)result.Z);
+            var raw = new Vector3((float)geo.X, (float)geo.Y, (float)geo.Z);
+
+
+            Console.WriteLine("------");
+            Console.WriteLine(raw);
+            Console.WriteLine(geo.MagRefENU);
+            */
         }
 
-        
+
+
 
         static Vector3 Center(Vector3 vector, float weight)
         {
-            
-            var lerpCenter = Vector3.Lerp(vector, vector.RotateOpposite(), weight);
+
+            var opposite = vector.RotateOpposite();
+            Console.WriteLine(opposite);
+            var lerpCenter = Vector3.Lerp(vector,opposite , weight);
             Console.WriteLine("lerpCenter: " + lerpCenter);
             return lerpCenter;
         }
@@ -86,9 +83,9 @@ namespace MyConsoleApp
         static List<Vector3> MeanCenter { get; } = new List<Vector3>();
         static Vector3 Calculate(Vector3 p)
         {
-            p = EarthPoints.ToNearest(p);
+            var centerP = Center(p, (Earth/p).Length());
             Console.WriteLine("p: " + p);
-            return p;
+            return p - centerP;
 
         }
 
@@ -413,6 +410,7 @@ namespace MyConsoleApp
 
         public static Vector3 RotateOpposite(this Vector3 vector)
         {
+            /*
             var radsRotate = Extensions.ToRad(180);
 
             var qX = Quaternion.CreateFromAxisAngle(Vector3.UnitX, radsRotate);
@@ -420,6 +418,11 @@ namespace MyConsoleApp
             var qZ = Quaternion.CreateFromAxisAngle(Vector3.UnitZ, radsRotate);
 
             return vector.Rotate(qX).Rotate(qY).Rotate(qZ);
+            */
+            //return Vector3.Negate(vector);
+            //return vector.Rotate(Quaternion.CreateFromAxisAngle(vector, Extensions.ToRad(180)));
+
+            return Vector3.Zero; // vector.Rotate(new Quaternion(vector, ToRad(10)));
         }
 
         public static Vector3 ToNearest(this IEnumerable<Vector3> vectors, Vector3 vector)
